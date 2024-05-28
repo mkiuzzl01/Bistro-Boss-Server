@@ -10,6 +10,8 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+
+
 //Token Verify
 const verifyToken = (req, res, next) => {
   console.log(req.headers.authorization);
@@ -25,6 +27,7 @@ const verifyToken = (req, res, next) => {
     next();
   });
 };
+
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.rbychrh.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -44,9 +47,10 @@ async function run() {
     const reviewCollection = client.db("Bistro-Boss").collection("Reviews");
     const addCardCollection = client.db("Bistro-Boss").collection("addCarts");
     const userCollection = client.db("Bistro-Boss").collection("Users");
-    // Send a ping to confirm a successful connection
 
-    //Token Verify
+
+
+    //Token Generate
     app.post("/jwt", async (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN, {
@@ -71,6 +75,8 @@ async function run() {
       const result = await userCollection.find().toArray();
       res.send(result);
     });
+
+
 
     //Check Admin
     app.get("/users/Admin/:email", verifyToken, async (req, res) => {
@@ -120,12 +126,49 @@ async function run() {
       res.send(result);
     });
 
+
+
     //food related API
     app.get("/menu", async (req, res) => {
       const result = await menuCollection.find().toArray();
       res.send(result);
     });
 
+    app.get("/menu/:id", async (req,res)=>{
+      const id = req.params.id;
+      const filter = {_id:new ObjectId(id)};
+      const result = await menuCollection.findOne(filter);
+      res.send(result);
+    })
+
+    app.patch("/menu/:id",async(req,res)=>{
+      const id = req.params.id;
+      const item = req.body;
+      const filter = {_id: new ObjectId(id)};
+      const updatedDoc = {
+        $set:{...item}
+      }
+      const result = await menuCollection.updateOne(filter,updatedDoc);
+      res.send(result);
+    })
+    
+    app.post("/menu",verifyToken,verifyAdmin, async (req, res) => {
+      const food = req.body;
+      const query = {...food}
+      const result = await menuCollection.insertOne(query);
+      res.send(result);
+    });
+    
+
+    app.delete('/menu/:id',verifyToken,verifyAdmin,async (req,res)=>{
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)};
+      const result = await menuCollection.deleteOne(query);
+      res.send(result);
+    })
+
+
+    //Cart Related Api
     app.get("/carts", async (req, res) => {
       const email = req.query.email;
       let query = {};
@@ -141,8 +184,10 @@ async function run() {
       const result = await addCardCollection.insertOne(item);
       res.send(result);
     });
-    app.delete("/Delete/:id", async (req, res) => {
+
+    app.delete("/item-delete/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
+      console.log("id",id);
       const query = { _id: new ObjectId(id) };
       const result = await addCardCollection.deleteOne(query);
       res.send(result);
